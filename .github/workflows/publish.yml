@@ -23,10 +23,8 @@ jobs:
       # wire-contract.test.ts is a drift guard (spec §18) that reads crtr's
       # own protocol/reducer source at test time. It expects crouter checked
       # out as a sibling of this repo, mirroring the local ~/Code/cli layout.
-      - uses: actions/checkout@v4
-        with:
-          repository: crouton-labs/crouter
-          path: ../crouter
+      # actions/checkout refuses paths outside the workspace, so clone directly.
+      - run: git clone --depth 1 https://github.com/crouton-labs/crouter.git ../crouter
 
       - uses: pnpm/action-setup@v4
         with:
