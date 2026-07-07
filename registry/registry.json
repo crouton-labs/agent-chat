@@ -1,0 +1,33 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "agent-chat",
+  "homepage": "https://github.com/crouton-labs/agent-chat",
+  "items": [
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "agent-chat",
+      "type": "registry:component",
+      "title": "Agent Chat",
+      "description": "A batteries-included, fully customizable chat UI for a crtr agent node — headless view model from @crouton-kit/agent-chat-core, copied shadcn/base-ui source you own.",
+      "dependencies": ["@crouton-kit/agent-chat-core", "streamdown", "lucide-react"],
+      "registryDependencies": ["button", "textarea", "scroll-area", "avatar", "badge", "dialog", "collapsible"],
+      "files": [
+        { "path": "src/components/ui/scroll-area.tsx", "type": "registry:ui", "target": "@components/ui/scroll-area.tsx" },
+        { "path": "src/components/agent-chat/types.ts", "type": "registry:lib", "target": "@components/agent-chat/types.ts" },
+        { "path": "src/components/agent-chat/context.tsx", "type": "registry:lib", "target": "@components/agent-chat/context.tsx" },
+        { "path": "src/components/agent-chat/AgentChatProvider.tsx", "type": "registry:component", "target": "@components/agent-chat/AgentChatProvider.tsx" },
+        { "path": "src/components/agent-chat/AgentChat.tsx", "type": "registry:component", "target": "@components/agent-chat/AgentChat.tsx" },
+        { "path": "src/components/agent-chat/Transcript.tsx", "type": "registry:component", "target": "@components/agent-chat/Transcript.tsx" },
+        { "path": "src/components/agent-chat/Message.tsx", "type": "registry:component", "target": "@components/agent-chat/Message.tsx" },
+        { "path": "src/components/agent-chat/MarkdownRenderer.tsx", "type": "registry:component", "target": "@components/agent-chat/MarkdownRenderer.tsx" },
+        { "path": "src/components/agent-chat/ThinkingDisclosure.tsx", "type": "registry:component", "target": "@components/agent-chat/ThinkingDisclosure.tsx" },
+        { "path": "src/components/agent-chat/ToolCallCard.tsx", "type": "registry:component", "target": "@components/agent-chat/ToolCallCard.tsx" },
+        { "path": "src/components/agent-chat/StatusBar.tsx", "type": "registry:component", "target": "@components/agent-chat/StatusBar.tsx" },
+        { "path": "src/components/agent-chat/SendBar.tsx", "type": "registry:component", "target": "@components/agent-chat/SendBar.tsx" },
+        { "path": "src/components/agent-chat/QueueChips.tsx", "type": "registry:component", "target": "@components/agent-chat/QueueChips.tsx" },
+        { "path": "src/components/agent-chat/Dialogs.tsx", "type": "registry:component", "target": "@components/agent-chat/Dialogs.tsx" },
+        { "path": "src/components/agent-chat/index.ts", "type": "registry:component", "target": "@components/agent-chat/index.ts" }
+      ]
+    }
+  ]
+}

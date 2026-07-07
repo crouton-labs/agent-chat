@@ -1,0 +1,13 @@
+{
+  "name": "agent-chat-workspace",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm --filter @crouton-kit/agent-chat-core build",
+    "typecheck": "pnpm --filter @crouton-kit/agent-chat-core typecheck",
+    "test": "pnpm --filter @crouton-kit/agent-chat-core test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
