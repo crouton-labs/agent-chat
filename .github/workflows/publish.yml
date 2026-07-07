@@ -48,7 +48,16 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          npm version patch -m "chore: release core v%s"
+          # npm's git integration only auto-commits/tags when `.git` is a
+          # direct child of cwd (@npmcli/git's `is()` doesn't walk up), which
+          # is never true from packages/core in this monorepo layout, so it
+          # silently bumps package.json without committing. Do the git side
+          # ourselves instead of relying on that.
+          npm version patch --no-git-tag-version
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          git add package.json
+          git commit -m "chore: release core v${NEW_VERSION}"
+          git tag "v${NEW_VERSION}"
           git push --follow-tags
 
       - run: pnpm build
