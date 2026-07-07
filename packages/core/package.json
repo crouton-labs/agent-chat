@@ -1,6 +1,6 @@
 {
   "name": "@crouton-kit/agent-chat-core",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Headless transport + view-model engine for the Hearth agent-chat UI kit — wire protocol, transcript reducer, ChatItem normalizer, activity derivation, queue/steer/abort state machine, dialog plumbing, and the useAgentChat hook.",
   "type": "module",
   "license": "UNLICENSED",
@@ -17,7 +17,9 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "sideEffects": false,
   "scripts": {
     "build": "tsup",
