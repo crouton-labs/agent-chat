@@ -24,7 +24,10 @@ jobs:
       # own protocol/reducer source at test time. It expects crouter checked
       # out as a sibling of this repo, mirroring the local ~/Code/cli layout.
       # actions/checkout refuses paths outside the workspace, so clone directly.
+      # working-directory: . (repo root, not packages/core) so ../crouter lands
+      # as a true sibling of the repo, not inside the packages/* workspace glob.
       - run: git clone --depth 1 https://github.com/crouton-labs/crouter.git ../crouter
+        working-directory: .
 
       - uses: pnpm/action-setup@v4
         with:
