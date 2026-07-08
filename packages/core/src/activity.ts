@@ -1,6 +1,8 @@
-// activity.ts — the single, always-available status signal (spec §8). Fixed
-// precedence: node-driven `display_status` > in-flight tool title > streaming
-// placeholder > idle.
+// activity.ts — the single, always-available status signal (spec §8).
+// Precedence: in-flight tool title > node-driven `display_status` > streaming
+// placeholder > idle. A running tool's friendly title always wins the visible
+// label — a persistent `display_status` (e.g. "<model> ready") never masks
+// the fact that a tool is actively running.
 
 import type { ChatItem, ToolActivity } from './chat-item.js';
 
@@ -50,25 +52,26 @@ export interface DeriveActivityInput {
 
 /**
  * Derive the current `Activity`, highest precedence first (spec §8):
- * 1. `display_status`, if any key is present — label is the text of the
- *    most-recently-set surviving key; state is `tool` if a tool is in flight,
- *    else `streaming`.
- * 2. An in-flight tool's friendly title — `state:'tool'`.
- * 3. Streaming with no active tool — `'Thinking…'`, or `'Responding…'` once
- *    assistant text has begun.
+ * 1. An in-flight tool's friendly title — `state:'tool'`. Wins even when a
+ *    persistent `display_status` is also set, so a stale "<model> ready"
+ *    status can never mask a tool that is actually running right now.
+ * 2. `display_status`, if any key is present (and no tool is running) —
+ *    label is the text of the most-recently-set surviving key, `state:'streaming'`.
+ * 3. Streaming with no active tool and no `display_status` — `'Thinking…'`,
+ *    or `'Responding…'` once assistant text has begun.
  * 4. Idle — not streaming.
  */
 export function deriveActivity(input: DeriveActivityInput): Activity {
   const runningTool = findRunningTool(input.items);
 
+  if (runningTool !== undefined) {
+    return { state: 'tool', label: runningTool.title, tool: runningTool };
+  }
+
   if (input.displayStatus.size > 0) {
     const entries = [...input.displayStatus.entries()];
     const label = entries[entries.length - 1]![1];
-    return { state: runningTool !== undefined ? 'tool' : 'streaming', label, tool: runningTool };
-  }
-
-  if (runningTool !== undefined) {
-    return { state: 'tool', label: runningTool.title, tool: runningTool };
+    return { state: 'streaming', label };
   }
 
   if (input.isStreaming) {

@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Activity } from './activity.js';
 import { deriveActivity } from './activity.js';
 import type { ChatItem } from './chat-item.js';
+import { isFatalConnectError, type ConnectErrorKind } from './connect-error.js';
 import { chatReducer, initialChatState } from './chat-reducer.js';
 import { answerResponseFrame, cancelResponseFrame } from './dialog.js';
 import { normalizeMessages } from './normalizer.js';
@@ -18,6 +19,16 @@ import { BrokerClient, type CloseKind } from './wire/broker-client.js';
 import type { BlockingDialogRequest, BrokerToClient, ClientRole, DialogResponse } from './wire/protocol.js';
 
 export type ChatStatus = 'connecting' | 'open' | 'reconnecting' | 'error-retry' | 'error-fatal';
+
+/** Set once `status` becomes `'error-fatal'`, describing WHY — either a fatal
+ *  WS close (`CloseKind`'s `fatal-invalid`/`fatal-gone`) or a thrown
+ *  `FatalConnectError` from `onBeforeConnect` (`ConnectErrorKind`, the same two
+ *  values). Cleared on the next connect attempt (new `nodeId`, or a manual
+ *  `actions.reconnect()`). */
+export interface FatalError {
+  kind: CloseKind | ConnectErrorKind;
+  message: string;
+}
 
 export type ChatEvent = { type: 'status'; status: ChatStatus } | { type: 'frame'; frame: BrokerToClient } | { type: 'close'; kind: CloseKind; reason: string };
 
@@ -55,6 +66,10 @@ export interface UseAgentChatResult {
   activity: Activity;
   queue: string[];
   dialog: BlockingDialogRequest | null;
+  /** Non-null only while `status === 'error-fatal'` — the fatal kind + message,
+   *  for a UI that wants to show WHY (e.g. distinguishing an invalid nodeId
+   *  from a gone/unrevivable one) rather than a single generic label. */
+  fatalError: FatalError | null;
   actions: UseAgentChatActions;
 }
 
@@ -77,6 +92,7 @@ export function useAgentChat(nodeId: string | null, options: UseAgentChatOptions
 
   const [state, dispatch] = useState(() => initialChatState(clientIdRef.current));
   const [status, setStatusState] = useState<ChatStatus>('connecting');
+  const [fatalError, setFatalError] = useState<FatalError | null>(null);
   const [queue, setQueue] = useState<string[]>([]);
   const [pending, setPending] = useState<{ id: string; text: string }[]>([]);
 
@@ -150,7 +166,13 @@ export function useAgentChat(nodeId: string | null, options: UseAgentChatOptions
   const connect = useCallback(() => {
     if (nodeId === null) return;
     const gen = genRef.current;
-    const before = onBeforeConnectRef.current ? onBeforeConnectRef.current(nodeId) : Promise.resolve();
+    // Deferred through `Promise.resolve().then(...)` so a SYNCHRONOUS throw
+    // from `onBeforeConnect` (e.g. `throw new FatalConnectError(...)` before
+    // any `await`) lands in the SAME `.catch()` below as a rejected promise —
+    // calling `onBeforeConnectRef.current(nodeId)` directly here would let a
+    // sync throw escape `connect()` entirely, bypassing both the fatal and
+    // the transient-retry paths.
+    const before = Promise.resolve().then(() => onBeforeConnectRef.current?.(nodeId));
     before
       .then(() => {
         if (gen !== genRef.current) return;
@@ -183,6 +205,7 @@ export function useAgentChat(nodeId: string | null, options: UseAgentChatOptions
             if (gen !== genRef.current) return;
             onEventRef.current?.({ type: 'close', kind: closeKind, reason });
             if (closeKind === 'fatal-invalid' || closeKind === 'fatal-gone') {
+              setFatalError({ kind: closeKind, message: reason });
               setStatus('error-fatal');
               return;
             }
@@ -193,10 +216,22 @@ export function useAgentChat(nodeId: string | null, options: UseAgentChatOptions
         clientRef.current = client;
         client.connect();
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         if (gen !== genRef.current) return;
-        // onBeforeConnect (revive) failing is a transient failure the
-        // reconnect loop can retry (spec §7 residual-risk note).
+        if (isFatalConnectError(err)) {
+          // onBeforeConnect has already determined this is terminal (an
+          // invalid nodeId, or a confirmed-gone/unrevivable node) — surface
+          // error-fatal immediately, same as a fatal WS close, instead of
+          // burning through the generic reconnect backoff first. Checked
+          // structurally (not `instanceof`), so a foreign/plain fatal-shaped
+          // value is classified the same as a real `FatalConnectError`.
+          onEventRef.current?.({ type: 'close', kind: err.kind, reason: err.message });
+          setFatalError({ kind: err.kind, message: err.message });
+          setStatus('error-fatal');
+          return;
+        }
+        // Any other onBeforeConnect (revive) failure is a transient failure
+        // the reconnect loop can retry (spec §7 residual-risk note).
         scheduleReconnect(gen, connect);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -210,6 +245,7 @@ export function useAgentChat(nodeId: string | null, options: UseAgentChatOptions
     setQueue([]);
     setPending([]);
     setSuppressedDialogId(null);
+    setFatalError(null);
     setStatus('connecting');
     connect();
     return () => {
@@ -324,6 +360,7 @@ export function useAgentChat(nodeId: string | null, options: UseAgentChatOptions
     genRef.current += 1;
     attemptsRef.current = 0;
     clientRef.current?.close();
+    setFatalError(null);
     setStatus('connecting');
     connect();
   }, [connect, setStatus]);
@@ -335,6 +372,7 @@ export function useAgentChat(nodeId: string | null, options: UseAgentChatOptions
     activity,
     queue,
     dialog: exposedDialog,
+    fatalError,
     actions: {
       send: sendAction,
       steer: steerAction,

@@ -32,7 +32,13 @@ export interface ReviveResult {
   ready: true;
 }
 
-export type ReviveOutcome = { ok: true; result: ReviveResult } | { ok: false; error: string };
+/** `stdout` is populated only for the non-zero-exit failure branch, and only
+ *  when the process wrote anything to stdout — the raw accumulated text,
+ *  never interpreted or JSON-parsed by this module (the success path already
+ *  proves stdout is unreachable-on-failure; this is a pass-through for a
+ *  caller that wants to recognize its OWN structured `--json` error shape
+ *  inside it, e.g. a caller-defined not-found/unrevivable classification). */
+export type ReviveOutcome = { ok: true; result: ReviveResult } | { ok: false; error: string; stdout?: string };
 
 export interface ReviveFoldState {
   stdout: string;
@@ -75,7 +81,9 @@ function foldKnownFrame(state: ReviveFoldState, frame: ReviveExecFrame): ReviveF
 
     case 'exit': {
       if (frame.code !== 0) {
-        return { done: true, state, outcome: { ok: false, error: withStderr(`revive exited with code ${frame.code}`, state.stderr) } };
+        const outcome: ReviveOutcome = { ok: false, error: withStderr(`revive exited with code ${frame.code}`, state.stderr) };
+        if (state.stdout !== '') outcome.stdout = state.stdout;
+        return { done: true, state, outcome };
       }
       let parsed: unknown;
       try {

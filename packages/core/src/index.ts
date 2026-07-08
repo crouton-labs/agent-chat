@@ -59,6 +59,12 @@ export type { BrokerClientHandlers } from './wire/broker-client.js';
 export { BrokerClient } from './wire/broker-client.js';
 
 // ---------------------------------------------------------------------------
+// connect-error — the typed fatal `onBeforeConnect` signal
+// ---------------------------------------------------------------------------
+export type { ConnectErrorKind } from './connect-error.js';
+export { FatalConnectError, isFatalConnectError } from './connect-error.js';
+
+// ---------------------------------------------------------------------------
 // chat-item — the normalized view model
 // ---------------------------------------------------------------------------
 export type { ImageRef, ToolActivity, ChatItem } from './chat-item.js';
@@ -114,5 +120,5 @@ export { initialChatState, foldBrokerFrame, chatReducer } from './chat-reducer.j
 // ---------------------------------------------------------------------------
 // use-agent-chat — the headless React hook
 // ---------------------------------------------------------------------------
-export type { ChatStatus, ChatEvent, UseAgentChatOptions, UseAgentChatActions, UseAgentChatResult } from './use-agent-chat.js';
+export type { ChatStatus, ChatEvent, FatalError, UseAgentChatOptions, UseAgentChatActions, UseAgentChatResult } from './use-agent-chat.js';
 export { useAgentChat } from './use-agent-chat.js';

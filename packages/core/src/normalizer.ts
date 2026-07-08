@@ -61,6 +61,9 @@ function noticeLabel(role: string): string {
  *    call's own stable `id`) so React reconciliation across `message_update`
  *    replacements never remounts/loses scroll or disclosure state.
  * 7. An unrecognized `role` degrades to a `notice{level:'info'}`, never a crash.
+ * 7a. The one exception to rule 7: `role:'custom'` (pi's own `CustomMessage`,
+ *     e.g. crouter's `<crtr-context>` bearings / cycle dividers) is silently
+ *     dropped — no item, no notice — rather than degrading to a notice.
  */
 export function normalizeMessages(messages: readonly AnyMessage[], streamingIndex: number | null, options: NormalizeOptions = {}): ChatItem[] {
   const toolRegistry = options.toolRegistry ?? defaultToolRegistry;
@@ -138,7 +141,19 @@ export function normalizeMessages(messages: readonly AnyMessage[], streamingInde
       return;
     }
 
-    // Rule 7: unrecognized role degrades to a notice.
+    if (message.role === 'custom') {
+      // Rule 7a: pi's own `CustomMessage` (role:'custom', a `customType` +
+      // `display` pair) is app/extension bookkeeping — crouter's injected
+      // `<crtr-context>` bearings, cycle dividers, etc — never a chat turn.
+      // Silently ignored on the product surface by default: it must NOT
+      // degrade to a visible notice (that would leak internal prompt/bearings
+      // content to the end user) and, unlike rule 7 below, there is no v1
+      // opt-in diagnostic rendering for it either.
+      return;
+    }
+
+    // Rule 7: any OTHER unrecognized role (e.g. an app-custom `bashExecution`
+    // message) degrades to a notice, never a crash.
     items.push({ kind: 'notice', id: `msg-${index}-notice`, level: 'info', text: noticeLabel(message.role) });
   });
 

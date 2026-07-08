@@ -18,13 +18,13 @@ describe('foldReviveFrames — AC#2a fixtures', () => {
     expect(outcome).toEqual({ ok: true, result: { window: 1, session: 2, resumed: 3, ready: true } });
   });
 
-  it('(b) a non-zero exit code rejects WITHOUT ever attempting to JSON.parse stdout', () => {
+  it('(b) a non-zero exit code rejects WITHOUT ever attempting to JSON.parse stdout, but preserves the raw stdout text', () => {
     // stdout is deliberately invalid JSON — if the implementation accidentally
     // tried to parse-then-ignore before checking the exit code, this fixture
     // would surface a "invalid JSON" error instead of the exit-code error.
     const frames: ReviveExecFrame[] = [{ type: 'stdout', data: 'not even close to json{' }, { type: 'exit', code: 2 }];
     const outcome = foldReviveFrames(frames);
-    expect(outcome).toEqual({ ok: false, error: 'revive exited with code 2' });
+    expect(outcome).toEqual({ ok: false, error: 'revive exited with code 2', stdout: 'not even close to json{' });
   });
 
   it('(b) the success JSON.parse path is provably unreachable for a non-zero exit — spies on the global JSON.parse', () => {
@@ -32,15 +32,23 @@ describe('foldReviveFrames — AC#2a fixtures', () => {
     // would ALSO pass an implementation that calls JSON.parse, swallows the
     // SyntaxError, and then separately returns the exit-code error — masking a
     // real bug where the success path still runs. Spy on JSON.parse itself and
-    // assert it is never invoked when the terminal frame is a non-zero exit.
+    // assert it is never invoked when the terminal frame is a non-zero exit,
+    // even though the (unparsed) stdout is still carried on the outcome.
     const parseSpy = vi.spyOn(JSON, 'parse');
     const frames: ReviveExecFrame[] = [
       { type: 'stdout', data: '{"window":1,"session":2,"resumed":3,"ready":true}' },
       { type: 'exit', code: 7 },
     ];
     const outcome = foldReviveFrames(frames);
-    expect(outcome).toEqual({ ok: false, error: 'revive exited with code 7' });
+    expect(outcome).toEqual({ ok: false, error: 'revive exited with code 7', stdout: '{"window":1,"session":2,"resumed":3,"ready":true}' });
     expect(parseSpy).not.toHaveBeenCalled();
+  });
+
+  it('(b) a non-zero exit with no stdout at all omits the `stdout` field rather than carrying an empty string', () => {
+    const frames: ReviveExecFrame[] = [{ type: 'exit', code: 1 }];
+    const outcome = foldReviveFrames(frames);
+    expect(outcome).toEqual({ ok: false, error: 'revive exited with code 1' });
+    expect(outcome).not.toHaveProperty('stdout');
   });
 
   afterEach(() => {

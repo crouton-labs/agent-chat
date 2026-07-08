@@ -7,6 +7,7 @@
 
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { FatalConnectError } from '../connect-error.js';
 import { normalizeMessages } from '../normalizer.js';
 import { useAgentChat } from '../use-agent-chat.js';
 import type { AnyMessage } from '../wire/protocol.js';
@@ -178,6 +179,88 @@ describe('useAgentChat — wiring', () => {
       await Promise.resolve();
     });
     expect(FakeWebSocket.instances).toHaveLength(1); // still just the one — no retry timer was ever armed
+  });
+
+  it('onBeforeConnect rejecting with a FatalConnectError goes straight to error-fatal with no WS attempt and no retry', async () => {
+    const onBeforeConnect = vi.fn((_nodeId: string) => Promise.reject(new FatalConnectError('fatal-invalid', 'nodeId "bad$id" does not match the required shape')));
+    const { result } = renderHook(() => useAgentChat('bad$id', { endpoint: (id) => `ws://test/${id}`, onBeforeConnect, reconnect: { delayMs: 1000, maxAttempts: 5 } }));
+    await flush();
+
+    expect(result.current.status).toBe('error-fatal');
+    expect(result.current.fatalError).toEqual({ kind: 'fatal-invalid', message: 'nodeId "bad$id" does not match the required shape' });
+    expect(FakeWebSocket.instances).toHaveLength(0); // never even attempted a WS connect
+
+    await act(async () => {
+      vi.advanceTimersByTime(60_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(FakeWebSocket.instances).toHaveLength(0); // no retry timer was ever armed
+    expect(onBeforeConnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('onBeforeConnect rejecting with a foreign/plain fatal-shaped object (not an instanceof FatalConnectError) still goes to error-fatal', async () => {
+    // Simulates a value that crossed a serialization boundary, or came from a
+    // duplicate/yalc-linked copy of this package — same shape, different
+    // constructor. `isFatalConnectError` must classify this structurally.
+    const foreignFatal = { name: 'FatalConnectError', kind: 'fatal-gone' as const, message: 'node "gone-1" is not revivable' };
+    const onBeforeConnect = vi.fn((_nodeId: string) => Promise.reject(foreignFatal));
+    const { result } = renderHook(() => useAgentChat('gone-1', { endpoint: (id) => `ws://test/${id}`, onBeforeConnect, reconnect: { delayMs: 1000, maxAttempts: 5 } }));
+    await flush();
+
+    expect(result.current.status).toBe('error-fatal');
+    expect(result.current.fatalError).toEqual({ kind: 'fatal-gone', message: 'node "gone-1" is not revivable' });
+    expect(FakeWebSocket.instances).toHaveLength(0);
+
+    await act(async () => {
+      vi.advanceTimersByTime(60_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(FakeWebSocket.instances).toHaveLength(0); // no retry timer was ever armed
+  });
+
+  it('onBeforeConnect throwing a FatalConnectError SYNCHRONOUSLY (before any await) still goes to error-fatal with no WS attempt and no retry', async () => {
+    const onBeforeConnect = vi.fn((_nodeId: string): Promise<void> => {
+      throw new FatalConnectError('fatal-invalid', 'nodeId "bad$id" does not match the required shape');
+    });
+    const { result } = renderHook(() => useAgentChat('bad$id', { endpoint: (id) => `ws://test/${id}`, onBeforeConnect, reconnect: { delayMs: 1000, maxAttempts: 5 } }));
+    await flush();
+
+    expect(result.current.status).toBe('error-fatal');
+    expect(result.current.fatalError).toEqual({ kind: 'fatal-invalid', message: 'nodeId "bad$id" does not match the required shape' });
+    expect(FakeWebSocket.instances).toHaveLength(0); // never even attempted a WS connect
+
+    await act(async () => {
+      vi.advanceTimersByTime(60_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(FakeWebSocket.instances).toHaveLength(0); // no retry timer was ever armed
+    expect(onBeforeConnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('onBeforeConnect throwing a plain Error (transient revive failure) still retries, unaffected by the FatalConnectError path', async () => {
+    let attempt = 0;
+    const onBeforeConnect = vi.fn((_nodeId: string) => {
+      attempt += 1;
+      return attempt === 1 ? Promise.reject(new Error('revive: POST /v1/exec responded 503')) : Promise.resolve();
+    });
+    const { result } = renderHook(() => useAgentChat('node-1', { endpoint: (id) => `ws://test/${id}`, onBeforeConnect, reconnect: { delayMs: 1000, maxAttempts: 5 } }));
+    await flush();
+
+    expect(result.current.status).toBe('reconnecting');
+    expect(result.current.fatalError).toBeNull();
+    expect(FakeWebSocket.instances).toHaveLength(0);
+
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onBeforeConnect).toHaveBeenCalledTimes(2);
+    expect(FakeWebSocket.instances).toHaveLength(1); // the retried onBeforeConnect resolved, so a WS attempt followed
   });
 
   it('idle send() appends an optimistic pending user item and emits a prompt frame (§4 rule 4)', async () => {

@@ -1,4 +1,4 @@
-// activity.test.ts — spec §8 precedence: display_status > running tool >
+// activity.test.ts — spec §8 precedence: running tool > display_status >
 // streaming placeholder > idle. Plus the keyed display-status map's
 // set/clear/reorder-on-update semantics.
 
@@ -59,11 +59,11 @@ describe('deriveActivity precedence', () => {
     expect(activity.tool?.callId).toBe('call-1');
   });
 
-  it('display_status outranks a running tool for the label, but state stays "tool"', () => {
+  it('a running tool\'s friendly title outranks display_status for the label — a persistent status must never mask an in-flight tool', () => {
     const items: ChatItem[] = [runningTool()];
     const displayStatus = applyDisplayStatus(emptyDisplayStatus(), 'phase', 'Deploying…');
     const activity = deriveActivity({ displayStatus, items, isStreaming: true });
-    expect(activity).toEqual({ state: 'tool', label: 'Deploying…', tool: items[0]!.kind === 'tool' ? items[0].call : undefined });
+    expect(activity).toEqual({ state: 'tool', label: 'Running a command', tool: items[0]!.kind === 'tool' ? items[0].call : undefined });
   });
 
   it('display_status with no running tool yields state "streaming" with the status label', () => {

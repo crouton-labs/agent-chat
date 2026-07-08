@@ -155,6 +155,22 @@ describe('normalizeMessages', () => {
     expect(items).toEqual([{ kind: 'notice', id: 'msg-0-notice', level: 'info', text: 'Unrecognized message (bashExecution)' }]);
   });
 
+  it('rule 7a: role:\'custom\' is silently dropped — no notice, no item at all', () => {
+    const messages: AnyMessage[] = [
+      { role: 'custom', customType: 'crtr-context', content: '<crtr-context>...bearings...</crtr-context>', display: false, timestamp: 0 } as AnyMessage,
+      user('hello'),
+    ];
+    const items = normalizeMessages(messages, null);
+    expect(items).toEqual([{ kind: 'user', id: 'msg-1-user', text: 'hello', images: undefined }]);
+    expect(items.some((i) => i.kind === 'notice')).toBe(false);
+  });
+
+  it('rule 7a: role:\'custom\' is dropped even when display:true (e.g. a cycle divider) — no v1 opt-in rendering', () => {
+    const messages: AnyMessage[] = [{ role: 'custom', customType: 'crtr-cycle-divider', content: '---', display: true, timestamp: 0 } as AnyMessage];
+    const items = normalizeMessages(messages, null);
+    expect(items).toEqual([]);
+  });
+
   it('always pushes one assistant item per assistant message, even with empty markdown (thinking/tool-only turn)', () => {
     // Verified current source behavior (normalizer.ts always `items.push({kind:'assistant',...})`
     // unconditionally at the end of the assistant branch) — this is the desired
