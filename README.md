@@ -5,6 +5,7 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/@crouton-kit/agent-chat-core"><img alt="npm" src="https://img.shields.io/npm/v/@crouton-kit/agent-chat-core?label=agent-chat-core"></a>
   <a href="https://nodejs.org"><img alt="node" src="https://img.shields.io/badge/node-%3E%3D20-339933"></a>
+  <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-GPL--3.0-blue"></a>
 </p>
 
 agent-chat is the code for putting a chat window on a [crouter](https://github.com/crouton-labs/crouter) agent node in a React app. It has two parts. `@crouton-kit/agent-chat-core` is a headless npm package: it connects to a node's broker over a WebSocket, folds the incoming frames into a transcript, and exposes that as a `useAgentChat` hook and a list of normalized `ChatItem`s, along with the queue, steer and abort state and the dialog requests an agent raises. The `agent-chat` registry is a [shadcn](https://ui.shadcn.com) registry item with the `<AgentChat>` component built on top of it, copied into your project as source that you own and edit.
