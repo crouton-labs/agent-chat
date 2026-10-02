@@ -30,7 +30,7 @@ pnpm typecheck    # tsc --noEmit, in packages/core
 pnpm build        # tsup, in packages/core
 ```
 
-One core test, `wire-contract.test.ts`, reads crouter's protocol source and expects a checkout of [crouter](https://github.com/crouton-labs/crouter) next to this repository (`../crouter`). Without it that test file fails to load, and the others still run. To run just those:
+One core test, `wire-contract.test.ts`, reads crouter's protocol source from a checkout of [crouter](https://github.com/crouton-labs/crouter) next to this repository (`../crouter`). It currently fails even with that checkout, because one of the crouter files it reads, `src/clients/web/web-client/transcript.ts`, no longer exists there. The other tests still run. To run just those:
 
 ```bash
 cd packages/core
